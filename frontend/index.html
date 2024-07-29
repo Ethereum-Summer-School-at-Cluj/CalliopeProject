@@ -2,17 +2,16 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>PDF Decryption</title>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.0.0/crypto-js.min.js"></script>
+    <title>PDF Viewer</title>
 </head>
 <body>
-    <h1>Decrypt PDF</h1>
-    <form id="decrypt-form">
-        <label for="address">Adresa Ethereum:</label>
+    <h1>View PDF</h1>
+    <form id="pdf-form">
+        <label for="address">Ethereum Address:</label>
         <input type="text" id="address" name="address" required>
-        <label for="tokenId">ID-ul Token-ului:</label>
+        <label for="tokenId">Token ID:</label>
         <input type="text" id="tokenId" name="tokenId" required>
-        <button type="submit">Obține Cheia și Decriptează</button>
+        <button type="submit">Get PDF</button>
     </form>
     <div id="pdf-viewer"></div>
 
@@ -30,73 +29,24 @@
                 const data = await response.json();
                 return data.key;
             } else {
-                throw new Error('Nu aveți acces la acest fișier');
+                throw new Error('Access denied');
             }
         }
 
-        async function decryptFile(encryptedFile, key) {
-            // Fetch the encrypted file
-            const response = await fetch(encryptedFile);
-            const encryptedData = await response.text(); // Encrypted data as base64 string
-
-            if (!encryptedData) {
-                throw new Error('Failed to fetch or process encrypted data');
-            }
-
-            console.log('Encrypted Data:', encryptedData);
-            console.log('Encrypted Data Length:', encryptedData.length);
-
-            // Parse the key
-            const keyBytes = CryptoJS.enc.Base64.parse(key);
-
-            // Decrypt using CryptoJS
-            const decrypted = CryptoJS.AES.decrypt(encryptedData, keyBytes, {
-                mode: CryptoJS.mode.CBC, // Adjust according to the encryption mode used
-                padding: CryptoJS.pad.Pkcs7 // Use the same padding as in encryption
-            });
-
-            // Convert decrypted data to base64
-            const decryptedBase64 = decrypted.toString(CryptoJS.enc.Base64);
-
-            if (!decryptedBase64) {
-                throw new Error('Decryption failed');
-            }
-
-            console.log('Decrypted Data (Base64):', decryptedBase64);
-            console.log('Decrypted Data (Base64) Length:', decryptedBase64.length);
-
-            // Convert base64 string to binary
-            const binaryData = atob(decryptedBase64); // Decode base64 string to binary
-            const arrayBuffer = new ArrayBuffer(binaryData.length);
-            const uint8Array = new Uint8Array(arrayBuffer);
-
-            for (let i = 0; i < binaryData.length; i++) {
-                uint8Array[i] = binaryData.charCodeAt(i);
-            }
-
-            // Convert binary to Blob and URL for PDF display
-            const blob = new Blob([uint8Array], { type: 'application/pdf' });
-            const url = URL.createObjectURL(blob);
-
-            return url;
-        }
-
-        document.getElementById('decrypt-form').addEventListener('submit', async (event) => {
+        document.getElementById('pdf-form').addEventListener('submit', async (event) => {
             event.preventDefault();
             const address = document.getElementById('address').value;
             const tokenId = document.getElementById('tokenId').value;
 
             try {
                 const key = await getDecryptionKey(address, tokenId);
-                console.log('Cheia de decriptare:', key);
-
-                const encryptedFileUrl = 'http://localhost:3000/files/encrypted_pdf.enc'; // Correct URL for the encrypted file
-                const decryptedContentUrl = await decryptFile(encryptedFileUrl, key);
-                console.log('Fișier decriptat:', decryptedContentUrl);
-
-                // Display the PDF
-                const pdfViewer = document.getElementById('pdf-viewer');
-                pdfViewer.innerHTML = `<iframe src="${decryptedContentUrl}" width="600" height="400"></iframe>`;
+                if (key === 'YOUR_SECRET_KEY') {
+                    console.log('Valid key:', key);
+                    const pdfUrl = `http://localhost:3000/files/${tokenId}.pdf`;
+                    document.getElementById('pdf-viewer').innerHTML = `<iframe src="${pdfUrl}" width="600" height="400"></iframe>`;
+                } else {
+                    throw new Error('Invalid decryption key');
+                }
             } catch (error) {
                 console.error(error.message);
             }
