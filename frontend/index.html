@@ -30,19 +30,55 @@
                 const data = await response.json();
                 return data.key;
             } else {
-                throw new Error('Nu aveți acces la acest fișier din index');
+                throw new Error('Nu aveți acces la acest fișier');
             }
         }
 
         async function decryptFile(encryptedFile, key) {
+            // Fetch the encrypted file
             const response = await fetch(encryptedFile);
-            const encryptedData = await response.arrayBuffer();
+            const encryptedData = await response.text(); // Encrypted data as base64 string
+
+            if (!encryptedData) {
+                throw new Error('Failed to fetch or process encrypted data');
+            }
+
+            console.log('Encrypted Data:', encryptedData);
+            console.log('Encrypted Data Length:', encryptedData.length);
+
+            // Parse the key
             const keyBytes = CryptoJS.enc.Base64.parse(key);
-            const decrypted = CryptoJS.AES.decrypt({ ciphertext: CryptoJS.lib.WordArray.create(encryptedData) }, keyBytes, {
-                mode: CryptoJS.mode.EAX,
-                padding: CryptoJS.pad.NoPadding
+
+            // Decrypt using CryptoJS
+            const decrypted = CryptoJS.AES.decrypt(encryptedData, keyBytes, {
+                mode: CryptoJS.mode.CBC, // Adjust according to the encryption mode used
+                padding: CryptoJS.pad.Pkcs7 // Use the same padding as in encryption
             });
-            return decrypted.toString(CryptoJS.enc.Latin1);
+
+            // Convert decrypted data to base64
+            const decryptedBase64 = decrypted.toString(CryptoJS.enc.Base64);
+
+            if (!decryptedBase64) {
+                throw new Error('Decryption failed');
+            }
+
+            console.log('Decrypted Data (Base64):', decryptedBase64);
+            console.log('Decrypted Data (Base64) Length:', decryptedBase64.length);
+
+            // Convert base64 string to binary
+            const binaryData = atob(decryptedBase64); // Decode base64 string to binary
+            const arrayBuffer = new ArrayBuffer(binaryData.length);
+            const uint8Array = new Uint8Array(arrayBuffer);
+
+            for (let i = 0; i < binaryData.length; i++) {
+                uint8Array[i] = binaryData.charCodeAt(i);
+            }
+
+            // Convert binary to Blob and URL for PDF display
+            const blob = new Blob([uint8Array], { type: 'application/pdf' });
+            const url = URL.createObjectURL(blob);
+
+            return url;
         }
 
         document.getElementById('decrypt-form').addEventListener('submit', async (event) => {
@@ -54,14 +90,13 @@
                 const key = await getDecryptionKey(address, tokenId);
                 console.log('Cheia de decriptare:', key);
 
-                const decryptedContent = await decryptFile('./encrypted-files/encrypted_pdf.enc', key);
-                console.log('Fișier decriptat:', decryptedContent);
+                const encryptedFileUrl = 'http://localhost:3000/files/encrypted_pdf.enc'; // Correct URL for the encrypted file
+                const decryptedContentUrl = await decryptFile(encryptedFileUrl, key);
+                console.log('Fișier decriptat:', decryptedContentUrl);
 
-                // Afișează PDF-ul decriptat
-                const blob = new Blob([decryptedContent], { type: 'application/pdf' });
-                const url = URL.createObjectURL(blob);
+                // Display the PDF
                 const pdfViewer = document.getElementById('pdf-viewer');
-                pdfViewer.innerHTML = `<iframe src="${url}" width="600" height="400"></iframe>`;
+                pdfViewer.innerHTML = `<iframe src="${decryptedContentUrl}" width="600" height="400"></iframe>`;
             } catch (error) {
                 console.error(error.message);
             }
